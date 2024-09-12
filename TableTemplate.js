@@ -1,51 +1,44 @@
+'use strict';
+
 class TableTemplate {
-    static fillIn(tableId, dict, columnName = null) {
-        const table = document.getElementById(tableId);
+    static fillIn(id, dict, columnName) {
+        const table = document.getElementById(id);
         if (!table) {
-            console.error(`Table with id "${tableId}" not found.`);
-            return;
+            console.warn(`Table with id '${id}' not found`);
+            return;  // Explicitly return undefined for consistency
         }
 
-        const headers = table.querySelectorAll('th');
-        let columnIndex = -1;
+        const templateRegex = /{{\s*([\w]+)\s*}}/g;
 
-        // Replace templates in headers
-        headers.forEach((header, index) => {
-            const originalHeader = header.innerHTML;
-            header.innerHTML = TableTemplate.processTemplate(originalHeader, dict);
-            if (TableTemplate.cleanString(header.innerHTML) === TableTemplate.cleanString(columnName)) {
-                columnIndex = index;
+        const replaceTemplate = str => str.replace(templateRegex,
+            (_, propName) => dict[propName] || `{{${propName}}}`);
+
+        const headerRow = table.rows[0];
+        const fillCell = cell => {
+            cell.textContent = replaceTemplate(cell.textContent);
+        };
+
+        // Replace templates in header
+        [...headerRow.cells].forEach(fillCell);
+
+        let colIndex = -1;
+        if (columnName) {
+            colIndex = [...headerRow.cells].findIndex(cell => cell.textContent === columnName);
+            if (colIndex === -1) {
+                console.warn(`Column '${columnName}' not found`);
+                return;
+            }
+        }
+
+        // Fill each row with replaced template
+        [...table.rows].slice(1).forEach(row => {
+            if (columnName) {
+                fillCell(row.cells[colIndex]);
+            } else {
+                [...row.cells].forEach(fillCell);
             }
         });
 
-        // Replace templates in the specified column or the entire table
-        const rows = table.querySelectorAll('tbody tr');
-        rows.forEach(row => {
-            const cells = row.querySelectorAll('td');
-            cells.forEach((cell, index) => {
-                if (columnName === null || index === columnIndex) {
-                    const originalCell = cell.innerHTML;
-                    cell.innerHTML = TableTemplate.processTemplate(originalCell, dict);
-                }
-            });
-        });
-
-        // Make table visible if it was hidden
-        if (table.style.visibility === 'hidden') {
-            table.style.visibility = 'visible';
-        }
-    }
-
-    // Helper method to process template strings
-    static processTemplate(template, dict) {
-        return template.replace(/{{(.*?)}}/g, (match, p1) => {
-            const key = p1.trim();
-            return dict[key] !== undefined ? dict[key] : match;
-        });
-    }
-
-    // Helper method to clean and compare strings (ignoring whitespace)
-    static cleanString(str) {
-        return str.replace(/\s+/g, '').toLowerCase();
+        table.style.visibility = 'visible';
     }
 }
